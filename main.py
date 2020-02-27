@@ -29,7 +29,7 @@ if __name__ == '__main__':
     analyzer = "word"
     n_topics = 2
 
-    tf_idf_transformer = TfidfTransformer()
+    # tf_idf_transformer = TfidfTransformer()
     vectorizer = CountVectorizer(analyzer=analyzer, max_features=1000, stop_words="english")
     term_doc_matrix = vectorizer.fit_transform(data).astype('float64')
     # term_doc_matrix_tf_idf = tf_idf_transformer.fit_transform(term_doc_matrix)
