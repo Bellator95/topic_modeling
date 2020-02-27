@@ -1,6 +1,7 @@
 import numpy as np
 from time import time
 from scorers import Scorers
+from regularizers import Regularizers
 from cutils import update_triplet_counts
 
 
@@ -22,7 +23,9 @@ class TopicsModel():
     """
     EPS = 1e-16
 
-    def __init__(self, n_topics: int, dictionary: list, scorers: list = None, random_state=None):
+    def __init__(self, n_topics: int, dictionary: list, scorers: list = None, random_state=None,
+                 word_topic_reg: list = None, topic_document_reg: list = None):
+
         self.n_topics = n_topics
         self.n_words = len(dictionary)
         self.n_documents = None
@@ -34,6 +37,8 @@ class TopicsModel():
 
         self._seed = random_state
         self.scorers = Scorers(scorers)
+        self.word_topic_reg = Regularizers(word_topic_reg)
+        self.topic_document_reg = Regularizers(topic_document_reg)
 
     def _get_start_topics_dists(self):
         """ Returns initial approximation of topics distribution.
@@ -80,7 +85,8 @@ class TopicsModel():
         if max_iter is None:
             max_iter = np.inf
 
-        self.word_topic_dist, self.topic_document_dist = self._get_start_topics_dists()
+        if self.word_topic_dist is None and self.topic_document_dist is None:
+            self.word_topic_dist, self.topic_document_dist = self._get_start_topics_dists()
         word_topic_error, topic_document_error = np.inf, np.inf
         if verbose > 0:
             print(" word/topic error  |  topic/document error ")
@@ -102,9 +108,15 @@ class TopicsModel():
                                       term_doc_matrix_batch, n_wt, n_td, i, i + term_doc_matrix_batch.shape[0],
                                       self.n_topics)
 
-            # TODO: To add the usage of regularizers.
-            word_topic_dist_new = n_wt / (n_wt.sum(axis=0) + TopicsModel.EPS)
-            topic_document_dist_new = n_td / (n_td.sum(axis=0) + TopicsModel.EPS)
+            if not self.word_topic_reg.empty():
+                word_topic_dist_new = self.word_topic_reg.apply(n_wt)
+            else:
+                word_topic_dist_new = n_wt / (n_wt.sum(axis=0) + TopicsModel.EPS)
+
+            if not self.topic_document_reg.empty():
+                topic_document_dist_new = self.topic_document_reg.apply(n_td)
+            else:
+                topic_document_dist_new = n_td / (n_td.sum(axis=0) + TopicsModel.EPS)
 
             word_topic_error = np.abs(word_topic_dist_new - self.word_topic_dist).max()
             topic_document_error = np.abs(topic_document_dist_new - self.topic_document_dist).max()
